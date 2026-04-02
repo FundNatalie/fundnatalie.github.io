@@ -337,7 +337,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:66px;display:flex;ali
       <p class="future-desc">Three years studying colon cancer at the molecular level at one of the world's leading oncology research institutions. Colon cancer is the 3rd most common cancer globally and the 2nd leading cause of cancer death, with rising rates in adults under 50.</p>
     </div>
     <div class="future-card fade-in" style="transition-delay:0.2s">
-      <div class="future-icon">&#129690;</div>
+      <div class="future-icon">🏥;</div>
       <p class="future-title">Medical school in the United States</p>
       <p class="future-desc">After the PhD, I plan to attend medical school in the US. I want to give back not only through research, but through direct patient care and community outreach. The MD and PhD together are the most powerful combination I can bring to the people I want to serve.</p>
     </div>
@@ -491,12 +491,20 @@ function openModal1(e) {
   document.getElementById("m1-tab-once").classList.add("active");
   document.getElementById("m1-tab-monthly").classList.remove("active");
   document.querySelectorAll("#modal1-overlay .mtier").forEach(b => b.classList.remove("mtier-active"));
-  var def = document.getElementById("m1-default"); if (def) def.classList.add("mtier-active");
+  var def = document.getElementById("m1-default");
+  if (def) def.classList.add("mtier-active");
   document.getElementById("modal1-overlay").classList.add("open");
   document.body.style.overflow = "hidden";
 }
-function closeModal1() { document.getElementById("modal1-overlay").classList.remove("open"); document.body.style.overflow = ""; }
+function openModal(e) { openModal1(e); }
+
+function closeModal1() {
+  document.getElementById("modal1-overlay").classList.remove("open");
+  document.body.style.overflow = "";
+}
+function closeModal() { closeModal1(); }
 function closeModal1Outside(e) { if (e.target === document.getElementById("modal1-overlay")) closeModal1(); }
+
 function m1SwitchTab(tab) {
   m1Mode = tab; m1Amount = tab === "once" ? 89 : 20;
   document.getElementById("m1-panel-once").style.display = tab === "once" ? "block" : "none";
@@ -507,16 +515,95 @@ function m1SwitchTab(tab) {
   if (tab === "once") { var def = document.getElementById("m1-default"); if (def) def.classList.add("mtier-active"); }
   else { var btns = document.querySelectorAll("#m1-panel-monthly .mtier"); if (btns[1]) btns[1].classList.add("mtier-active"); }
 }
+
 function m1Select(amount, mode, btn) {
-  if (btn.classList.contains("mtier-active")) { btn.classList.remove("mtier-active"); m1Amount = null; return; }
+  if (btn.classList.contains("mtier-active")) {
+    btn.classList.remove("mtier-active"); m1Amount = null; return;
+  }
   m1Mode = mode; m1Amount = amount;
   document.querySelectorAll("#modal1-overlay .mtier").forEach(b => b.classList.remove("mtier-active"));
   btn.classList.add("mtier-active");
 }
-function m1Donate() {
-  if (m1Amount === null || m1Amount === "custom") { window.open(m1Mode === "once" ? STRIPE_ONCE.custom : STRIPE_MONTHLY.custom, "_blank"); return; }
-  var links = m1Mode === "once" ? STRIPE_ONCE : STRIPE_MONTHLY;
-  window.open(links[m1Amount] || links.custom, "_blank");
+
+async function m1ShowCustom(mode) {
+  document.querySelectorAll("#modal1-overlay .mtier").forEach(b => b.classList.remove("mtier-active"));
+  m1Amount = "custom";
+  m1Mode = mode;
+  if (mode === "once") {
+    const btn = document.getElementById("m1-custom-once-btn");
+    const wrap = document.getElementById("m1-custom-once-wrap");
+    const isOpen = wrap.style.display !== "none";
+    wrap.style.display = isOpen ? "none" : "block";
+    btn.classList.toggle("mtier-active", !isOpen);
+    if (!isOpen) document.getElementById("m1-custom-once-val").focus();
+  } else {
+    const btn = document.getElementById("m1-custom-monthly-btn");
+    const wrap = document.getElementById("m1-custom-monthly-wrap");
+    const isOpen = wrap.style.display !== "none";
+    wrap.style.display = isOpen ? "none" : "block";
+    btn.classList.toggle("mtier-active", !isOpen);
+    if (!isOpen) document.getElementById("m1-custom-monthly-val").focus();
+  }
+}
+
+function m1UpdateCalc(mode) {
+  const inputId = mode === "once" ? "m1-custom-once-val" : "m1-custom-monthly-val";
+  const resultId = mode === "once" ? "m1-custom-once-result" : "m1-custom-monthly-result";
+  const val = parseFloat(document.getElementById(inputId).value);
+  const res = document.getElementById(resultId);
+  if (!val || val < 1) { res.textContent = ""; return; }
+  m1Amount = "custom";
+  if (mode === "once") {
+    const days = val / 178;
+    if (days < 0.5) res.textContent = "Less than half a day of cancer research.";
+    else if (days < 1) res.textContent = "About " + Math.round(days * 24) + " hours of Oxford cancer research.";
+    else if (days < 2) res.textContent = "1 full day of Oxford cancer research.";
+    else res.textContent = days.toFixed(1) + " days of Oxford cancer research.";
+  } else {
+    res.textContent = ((val * 12) / 178).toFixed(1) + " days of research funded per year.";
+  }
+}
+
+async function m1Donate() {
+  const activePanel = m1Mode === "once" ? "m1-panel-once" : "m1-panel-monthly";
+  const btn = document.querySelector("#" + activePanel + " .donate-btn");
+
+  // Fixed tier — go straight to Stripe link
+  if (m1Amount !== null && m1Amount !== "custom") {
+    const links = m1Mode === "once" ? STRIPE_ONCE : STRIPE_MONTHLY;
+    const url = links[m1Amount];
+    if (url) { window.open(url, "_blank"); return; }
+  }
+
+  // Custom amount — read from visible input
+  const inputId = m1Mode === "once" ? "m1-custom-once-val" : "m1-custom-monthly-val";
+  const customVal = parseFloat(document.getElementById(inputId).value);
+  if (!customVal || customVal < 1) { return; }
+
+  if (btn) { btn.textContent = "Loading..."; btn.disabled = true; }
+  try {
+    const res = await fetch("/api/create-checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: customVal, mode: m1Mode })
+    });
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      alert("Payment service unavailable. Please email natalie@sorensn.com");
+      return;
+    }
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("Error: " + (data.error || "Something went wrong."));
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Something went wrong. Please try again or email natalie@sorensn.com");
+  } finally {
+    if (btn) { btn.textContent = "Donate now"; btn.disabled = false; }
+  }
 }
 
 function toggleAccordion(id) {
