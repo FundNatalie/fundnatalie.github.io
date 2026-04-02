@@ -862,49 +862,6 @@ async function m1Donate() {
     if (btn) { btn.textContent = "Donate now"; btn.disabled = false; }
   }
 }
-// Modal 2
-var m2Amount = null;
-var m2Mode = "once";
-
-function openModal2(amount) {
-  m2Amount = amount; m2Mode = "once";
-  var amtLabel = amount ? ("$" + amount) : "your chosen amount";
-  document.getElementById("m2-sub").textContent = amount
-    ? ("You would like to donate " + amtLabel + ". How would you like to give?")
-    : "Choose one-time or monthly to continue.";
-  document.getElementById("m2-once-desc").textContent = amount
-    ? (amtLabel + " as a one-time donation.")
-    : "A single one-time donation in your chosen amount.";
-  document.getElementById("m2-monthly-desc").textContent = amount
-    ? (amtLabel + " per month, billed monthly. Cancel anytime.")
-    : "A recurring monthly donation. Cancel anytime.";
-  document.getElementById("m2-panel-once").style.display = "block";
-  document.getElementById("m2-panel-monthly").style.display = "none";
-  document.getElementById("m2-tab-once").classList.add("active");
-  document.getElementById("m2-tab-monthly").classList.remove("active");
-  document.getElementById("modal2-overlay").classList.add("open");
-  document.body.style.overflow = "hidden";
-}
-
-function closeModal2() {
-  document.getElementById("modal2-overlay").classList.remove("open");
-  document.body.style.overflow = "";
-}
-function closeModal2Outside(e) { if (e.target === document.getElementById("modal2-overlay")) closeModal2(); }
-
-
-function m2SwitchTab(tab) {
-  m2Mode = tab;
-  document.getElementById("m2-panel-once").style.display = tab === "once" ? "block" : "none";
-  document.getElementById("m2-panel-monthly").style.display = tab === "monthly" ? "block" : "none";
-  document.getElementById("m2-tab-once").classList.toggle("active", tab === "once");
-  document.getElementById("m2-tab-monthly").classList.toggle("active", tab !== "once");
-}
-
-function m2Donate(mode) {
-  var url = mode === "once" ? STRIPE_ONCE.custom : STRIPE_MONTHLY.custom;
-  window.open(url, "_blank");
-}
 
 // ── Custom amount input reveal ───────────────────────────────────────────────
 function showCustomInput(mode) {
